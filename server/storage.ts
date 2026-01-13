@@ -1,38 +1,41 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  equipment,
+  inquiries,
+  type InsertEquipment,
+  type InsertInquiry,
+  type Equipment,
+  type Inquiry
+} from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getEquipment(): Promise<Equipment[]>;
+  getEquipmentItem(id: number): Promise<Equipment | undefined>;
+  createInquiry(inquiry: InsertInquiry): Promise<Inquiry>;
+  // Seed method
+  createEquipment(item: InsertEquipment): Promise<Equipment>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getEquipment(): Promise<Equipment[]> {
+    return await db.select().from(equipment);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getEquipmentItem(id: number): Promise<Equipment | undefined> {
+    const [item] = await db.select().from(equipment).where(eq(equipment.id, id));
+    return item;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createInquiry(insertInquiry: InsertInquiry): Promise<Inquiry> {
+    const [newInquiry] = await db.insert(inquiries).values(insertInquiry).returning();
+    return newInquiry;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createEquipment(insertItem: InsertEquipment): Promise<Equipment> {
+    const [item] = await db.insert(equipment).values(insertItem).returning();
+    return item;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
